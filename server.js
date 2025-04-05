@@ -137,8 +137,13 @@ function sendEmail(to, weatherData, city) {
         }
     });
 }
-
+app.get('/test-email', (req, res) => {
+    const testWeather = { temp: 25, condition: 'Sunny', description: 'Clear sky', isRain: false };
+    sendEmail('test@example.com', testWeather, 'TestCity');
+    res.send('Email test triggered. Check logs.');
+});
 // Serve the enhanced frontend
+
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
