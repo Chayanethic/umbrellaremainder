@@ -44,6 +44,7 @@ try {
 }
 
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
+const GEONAMES_USERNAME = process.env.GEONAMES_USERNAME; // Add this to .env
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -68,6 +69,18 @@ async function getWeather(city) {
     } catch (error) {
         console.error('Error fetching weather:', error);
         return null;
+    }
+}
+
+async function getCitySuggestions(query) {
+    try {
+        const url = `http://api.geonames.org/searchJSON?q=${query}&maxRows=10&featureClass=P&username=${GEONAMES_USERNAME}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.geonames.map(city => city.name);
+    } catch (error) {
+        console.error('Error fetching city suggestions:', error);
+        return [];
     }
 }
 
@@ -253,6 +266,7 @@ app.get('/', (req, res) => {
                 body.dark .theme-toggle { color: var(--text-dark); }
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 .container { animation: fadeIn 0.8s ease; }
+                #cityList { max-height: 200px; overflow-y: auto; }
             </style>
             <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
             <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -266,7 +280,8 @@ app.get('/', (req, res) => {
                     <input type="email" id="email" placeholder="Your Email" required>
                 </div>
                 <div class="input-group">
-                    <input type="text" id="city" placeholder="Your City" required>
+                    <input type="text" id="city" placeholder="Your City" list="cityList" required oninput="fetchCitySuggestions()">
+                    <datalist id="cityList"></datalist>
                 </div>
                 <div class="input-group">
                     <input type="time" id="time" required>
@@ -335,6 +350,18 @@ app.get('/', (req, res) => {
                         }
                     };
 
+                    window.fetchCitySuggestions = async function() {
+                        const query = document.getElementById('city').value;
+                        if (query.length < 3) {
+                            document.getElementById('cityList').innerHTML = '';
+                            return;
+                        }
+                        const response = await fetch(\`/cities?query=\${query}\`);
+                        const cities = await response.json();
+                        const dataList = document.getElementById('cityList');
+                        dataList.innerHTML = cities.map(city => \`<option value="\${city}">\`).join('');
+                    };
+
                     window.toggleTheme = function() {
                         document.body.classList.toggle('dark');
                         const toggleIcon = document.querySelector('.theme-toggle i');
@@ -357,6 +384,12 @@ app.get('/weather', async (req, res) => {
     } else {
         res.status(404).json({ error: 'City not found' });
     }
+});
+
+app.get('/cities', async (req, res) => {
+    const query = req.query.query;
+    const cities = await getCitySuggestions(query);
+    res.json(cities);
 });
 
 cron.schedule('* * * * *', () => {
