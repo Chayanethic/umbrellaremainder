@@ -422,28 +422,38 @@ app.get('/', (req, res) => {
 });
 
 cron.schedule('* * * * *', () => {
+    console.log('Cron job triggered at', new Date().toISOString());
     const now = new Date();
     const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+    console.log('Current time:', currentTime);
 
     db.ref('reminders').once('value')
         .then(async (snapshot) => {
             const reminders = snapshot.val();
+            console.log('Reminders from Firebase:', reminders);
             if (reminders) {
                 for (let id in reminders) {
                     const { email, city, time } = reminders[id];
+                    console.log(`Checking reminder: ID=${id}, Email=${email}, City=${city}, Time=${time}`);
                     if (time === currentTime) {
+                        console.log(`Match found for ${email} at ${time}`);
                         const weatherData = await getWeather(city);
+                        console.log('Weather data:', weatherData);
                         if (weatherData) {
                             sendEmail(email, weatherData, city);
                         } else {
                             console.log(`Failed to fetch weather for ${city}, skipping email for ${email}`);
                         }
+                    } else {
+                        console.log(`No match: ${time} !== ${currentTime}`);
                     }
                 }
+            } else {
+                console.log('No reminders found');
             }
         })
         .catch((error) => {
-            console.error('Error reading from Firebase:', error);
+            console.error('Error reading from Firebase:', error.message, error.stack);
         });
 });
 
