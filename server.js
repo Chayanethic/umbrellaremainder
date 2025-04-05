@@ -3,7 +3,6 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
 const fetch = require('node-fetch');
-console.log('fetch typeof at top:', typeof fetch);
 
 let firebase;
 try {
@@ -26,11 +25,6 @@ const firebaseConfig = {
     appId: process.env.FIREBASE_APP_ID,
     databaseURL: process.env.FIREBASE_DATABASE_URL
 };
-
-if (!firebaseConfig.apiKey || !firebaseConfig.databaseURL) {
-    console.error('Firebase configuration is incomplete. Check your .env file.');
-    process.exit(1);
-}
 
 try {
     firebase.initializeApp(firebaseConfig);
@@ -61,7 +55,6 @@ const transporter = nodemailer.createTransport({
 
 async function getWeather(city) {
     try {
-        console.log('Inside getWeather, fetch typeof:', typeof fetch);
         const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${WEATHER_API_KEY}&units=metric`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('City not found');
@@ -80,42 +73,48 @@ async function getWeather(city) {
 
 function sendEmail(to, weatherData, city) {
     const { temp, condition, description, isRain } = weatherData;
-    const subject = `☂ Your Daily Weather Update for ${city}`;
+    const subject = `☂ Weather Update for ${city}`;
     const html = `
         <!DOCTYPE html>
         <html>
         <head>
             <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; }
-                .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-                .header { background: linear-gradient(135deg, #74ebd5, #acb6e5); padding: 20px; text-align: center; color: white; }
-                .header h1 { margin: 0; font-size: 24px; }
-                .content { padding: 20px; color: #333; }
-                .weather-box { background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 15px 0; text-align: center; }
-                .weather-box h2 { color: #74ebd5; font-size: 20px; margin-bottom: 10px; }
-                .weather-box p { margin: 5px 0; font-size: 16px; }
-                .highlight { font-weight: bold; color: #acb6e5; }
-                .footer { text-align: center; padding: 15px; font-size: 12px; color: #777; background: #f4f4f4; }
+                body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background: #f0f4f8; color: #333; }
+                .container { max-width: 600px; margin: 20px auto; background: #fff; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #6b48ff, #00ddeb); padding: 30px; text-align: center; color: white; }
+                .header h1 { margin: 0; font-size: 28px; font-weight: 700; }
+                .content { padding: 25px; }
+                .weather-card { background: #f9f9f9; border-radius: 10px; padding: 20px; text-align: center; margin: 20px 0; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+                .weather-card h2 { font-size: 22px; color: #6b48ff; margin-bottom: 10px; }
+                .temp { font-size: 36px; font-weight: 700; color: #00ddeb; margin: 10px 0; }
+                .desc { font-size: 16px; color: #666; text-transform: capitalize; }
+                .alert { margin-top: 15px; padding: 10px; border-radius: 8px; font-weight: 600; }
+                .rain { background: #e0f7fa; color: #0288d1; }
+                .sunny { background: #fff3e0; color: #ff9800; }
+                .footer { text-align: center; padding: 20px; font-size: 14px; color: #888; background: #f9f9f9; }
+                .icon { font-size: 24px; vertical-align: middle; margin-right: 8px; }
             </style>
         </head>
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>Umbrella Reminder</h1>
+                    <h1><span class="icon">☔</span>Umbrella Reminder</h1>
                 </div>
                 <div class="content">
                     <p>Hello there!</p>
-                    <p>Here’s your weather update for <span class="highlight">${city}</span> today:</p>
-                    <div class="weather-box">
+                    <p>Here’s your daily weather update for <strong>${city}</strong>:</p>
+                    <div class="weather-card">
                         <h2>${condition}</h2>
-                        <p>Temperature: <span class="highlight">${temp}°C</span></p>
-                        <p>Details: ${description}</p>
-                        <p>${isRain ? '🌧️ <strong>Grab your umbrella!</strong> It’s going to rain today.' : '☀️ No umbrella needed today—enjoy the weather!'}</p>
+                        <div class="temp">${temp}°C</div>
+                        <div class="desc">${description}</div>
+                        <div class="alert ${isRain ? 'rain' : 'sunny'}">
+                            ${isRain ? '🌧️ Bring your umbrella—it’s rainy today!' : '☀️ No umbrella needed—enjoy the sunshine!'}
+                        </div>
                     </div>
-                    <p>Stay prepared and have a great day!</p>
+                    <p>Stay prepared and have an amazing day!</p>
                 </div>
                 <div class="footer">
-                    <p>Powered by Umbrella Reminder | Unsubscribe anytime</p>
+                    <p>Sent with ☀️ by Umbrella Reminder | <a href="#" style="color: #6b48ff; text-decoration: none;">Unsubscribe</a></p>
                 </div>
             </div>
         </body>
@@ -131,18 +130,12 @@ function sendEmail(to, weatherData, city) {
 
     transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-            console.log('Email error:', error);
+            console.error('Email sending failed:', error.message, error.stack);
         } else {
-            console.log('Email sent: ' + info.response);
+            console.log(`Email sent to ${to} successfully at ${new Date().toISOString()} for ${city}`);
         }
     });
 }
-app.get('/test-email', (req, res) => {
-    const testWeather = { temp: 25, condition: 'Sunny', description: 'Clear sky', isRain: false };
-    sendEmail('neogichayan24@gmail.com', testWeather, 'TestCity');
-    res.send('Email test triggered. Check logs.');
-});
-// Serve the enhanced frontend
 
 app.get('/', (req, res) => {
     res.send(`
@@ -154,13 +147,12 @@ app.get('/', (req, res) => {
             <title>Umbrella Reminder</title>
             <style>
                 :root {
-                    --primary: #74ebd5;
-                    --secondary: #acb6e5;
-                    --bg-light: rgba(255, 255, 255, 0.95);
-                    --bg-dark: #2c3e50;
+                    --primary: #6b48ff;
+                    --secondary: #00ddeb;
+                    --bg-light: #f0f4f8;
+                    --bg-dark: #1a1a2e;
                     --text-light: #333;
-                    --text-dark: #ecf0f1;
-                    --shadow: rgba(0, 0, 0, 0.2);
+                    --text-dark: #e0e0e0;
                 }
                 * { margin: 0; padding: 0; box-sizing: border-box; }
                 body {
@@ -172,135 +164,82 @@ app.get('/', (req, res) => {
                     align-items: center;
                     transition: background 0.5s ease;
                 }
-                body.dark {
-                    background: linear-gradient(135deg, #34495e, #2c3e50);
-                }
+                body.dark { background: linear-gradient(135deg, #1a1a2e, #16213e); }
                 .container {
                     background: var(--bg-light);
-                    padding: 3rem;
-                    border-radius: 25px;
-                    box-shadow: 0 20px 50px var(--shadow);
+                    padding: 2.5rem;
+                    border-radius: 20px;
+                    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
                     width: 100%;
                     max-width: 500px;
                     text-align: center;
-                    position: relative;
                     transition: background 0.5s ease;
                 }
-                body.dark .container {
-                    background: var(--bg-dark);
-                }
-                .header {
-                    margin-bottom: 2rem;
-                }
+                body.dark .container { background: var(--bg-dark); color: var(--text-dark); }
                 h1 {
                     font-size: 2.5rem;
                     font-weight: 700;
                     background: linear-gradient(to right, var(--primary), var(--secondary));
                     -webkit-background-clip: text;
                     color: transparent;
-                    letter-spacing: 2px;
-                    animation: slideIn 0.8s ease-out;
-                }
-                body.dark h1 {
-                    background: linear-gradient(to right, #74ebd5, #ecf0f1);
-                    -webkit-background-clip: text;
-                    color: transparent;
-                }
-                .form-section {
-                    margin-bottom: 2rem;
+                    margin-bottom: 1.5rem;
                 }
                 .input-group {
-                    margin-bottom: 1.8rem;
+                    margin-bottom: 1.5rem;
                     position: relative;
                 }
                 input {
                     width: 100%;
-                    padding: 15px;
-                    border: 2px solid #e0e0e0;
-                    border-radius: 12px;
+                    padding: 14px;
+                    border: 2px solid #ddd;
+                    border-radius: 10px;
                     font-size: 1.1rem;
-                    background: #fff;
                     transition: all 0.3s ease;
                 }
-                body.dark input {
-                    background: #34495e;
-                    border-color: #5d6d7e;
-                    color: var(--text-dark);
-                }
+                body.dark input { background: #16213e; border-color: #444; color: var(--text-dark); }
                 input:focus {
                     border-color: var(--primary);
-                    box-shadow: 0 0 10px rgba(116, 235, 213, 0.6);
+                    box-shadow: 0 0 10px rgba(107, 72, 255, 0.5);
                     outline: none;
                 }
-                input::placeholder {
-                    color: #aaa;
-                    opacity: 0.8;
-                }
-                body.dark input::placeholder {
-                    color: #bdc3c7;
-                }
+                input::placeholder { color: #999; }
+                body.dark input::placeholder { color: #aaa; }
                 button {
                     width: 100%;
-                    padding: 15px;
+                    padding: 14px;
                     background: linear-gradient(135deg, var(--primary), var(--secondary));
                     border: none;
-                    border-radius: 12px;
+                    border-radius: 10px;
                     color: white;
                     font-size: 1.2rem;
                     font-weight: 600;
                     cursor: pointer;
                     transition: all 0.3s ease;
-                    box-shadow: 0 5px 15px rgba(116, 235, 213, 0.4);
-                }
-                button:hover {
-                    transform: translateY(-4px);
-                    box-shadow: 0 10px 25px rgba(116, 235, 213, 0.6);
-                }
-                button:active {
-                    transform: translateY(0);
-                    box-shadow: 0 5px 15px rgba(116, 235, 213, 0.4);
-                }
-                .intro {
-                    background: #f9f9f9;
-                    padding: 1.5rem;
-                    border-radius: 15px;
-                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-                    animation: fadeInUp 1s ease-out;
-                }
-                body.dark .intro {
-                    background: #34495e;
-                }
-                .intro h2 {
-                    font-size: 1.5rem;
-                    color: var(--primary);
                     margin-bottom: 1rem;
                 }
-                body.dark .intro h2 {
-                    color: #74ebd5;
+                button:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(107, 72, 255, 0.4); }
+                button:active { transform: translateY(0); }
+                .weather-preview {
+                    background: #fff;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin-top: 1rem;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                    display: none;
                 }
-                .intro p {
-                    font-size: 1rem;
-                    color: #666;
-                    line-height: 1.6;
-                }
-                body.dark .intro p {
-                    color: var(--text-dark);
-                }
-                .footer {
+                body.dark .weather-preview { background: #16213e; }
+                .weather-preview.active { display: block; }
+                .weather-preview h3 { color: var(--primary); font-size: 1.3rem; }
+                .weather-preview p { margin: 5px 0; font-size: 1rem; }
+                .intro {
                     margin-top: 2rem;
-                    font-size: 0.95rem;
-                    color: #777;
-                    opacity: 0.9;
-                    animation: fadeIn 1.2s ease-out;
+                    padding: 1.5rem;
+                    background: rgba(255,255,255,0.8);
+                    border-radius: 10px;
+                    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
                 }
-                body.dark .footer {
-                    color: #bdc3c7;
-                }
-                .icon {
-                    font-size: 1.5rem;
-                    margin-right: 8px;
-                    vertical-align: middle;
-                }
+                body.dark .intro { background: rgba(255,255,255,0.1); }
+                .intro h2 { color: var(--primary); font-size: 1.5rem; margin-bottom: 1rem; }
                 .theme-toggle {
                     position: absolute;
                     top: 1rem;
@@ -310,58 +249,41 @@ app.get('/', (req, res) => {
                     font-size: 1.5rem;
                     cursor: pointer;
                     color: #666;
-                    transition: color 0.3s ease;
                 }
-                body.dark .theme-toggle {
-                    color: #ecf0f1;
-                }
-                @keyframes slideIn {
-                    from { opacity: 0; transform: translateX(-20px); }
-                    to { opacity: 1; transform: translateX(0); }
-                }
-                @keyframes fadeInUp {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
+                body.dark .theme-toggle { color: var(--text-dark); }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                .container { animation: fadeIn 0.8s ease; }
             </style>
             <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
             <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
             <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
         </head>
         <body>
             <div class="container">
-                <button class="theme-toggle" onclick="toggleTheme()">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <div class="header">
-                    <h1><i class="fas fa-umbrella icon"></i>Umbrella Reminder</h1>
+                <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+                <h1>Umbrella Reminder</h1>
+                <div class="input-group">
+                    <input type="email" id="email" placeholder="Your Email" required>
                 </div>
-                <div class="form-section">
-                    <div class="input-group">
-                        <input type="email" id="email" placeholder="Your Email" required>
-                    </div>
-                    <div class="input-group">
-                        <input type="text" id="city" placeholder="Your City" required>
-                    </div>
-                    <div class="input-group">
-                        <input type="time" id="time" required>
-                    </div>
-                    <button onclick="saveReminder()">
-                        <i class="fas fa-bell icon"></i>Set Your Reminder
-                    </button>
+                <div class="input-group">
+                    <input type="text" id="city" placeholder="Your City" required>
+                </div>
+                <div class="input-group">
+                    <input type="time" id="time" required>
+                </div>
+                <button onclick="saveReminder()">Set Reminder</button>
+                <button onclick="previewWeather()">Preview Weather</button>
+                <div class="weather-preview" id="weatherPreview">
+                    <h3>Current Weather</h3>
+                    <p id="previewTemp"></p>
+                    <p id="previewCondition"></p>
+                    <p id="previewDesc"></p>
                 </div>
                 <div class="intro">
-                    <h2>What We Do</h2>
-                    <p>Stay ahead of the weather with <strong>Umbrella Reminder</strong>! Set a daily reminder, and we’ll send you a stylish email with the latest weather forecast for your city—complete with temperature, conditions, and a heads-up if you’ll need an umbrella. Simple, smart, and designed to keep you prepared.</p>
+                    <h2>Stay Weather-Ready!</h2>
+                    <p>Get daily weather updates straight to your inbox with a sleek, personalized email. Know when to grab your umbrella or enjoy the sun!</p>
                 </div>
-                <div class="footer">Weather updates delivered with a smile!</div>
             </div>
-
             <script>
                 window.onload = function() {
                     const firebaseConfig = {
@@ -374,37 +296,42 @@ app.get('/', (req, res) => {
                         databaseURL: "${process.env.FIREBASE_DATABASE_URL}"
                     };
 
-                    try {
-                        firebase.initializeApp(firebaseConfig);
-                        console.log('Frontend Firebase initialized');
-                    } catch (error) {
-                        console.error('Error initializing Firebase in frontend:', error);
-                        alert('Failed to initialize app. Please try again later.');
-                        return;
-                    }
-
+                    firebase.initializeApp(firebaseConfig);
                     const db = firebase.database();
 
                     window.saveReminder = function() {
                         const email = document.getElementById('email').value;
                         const city = document.getElementById('city').value;
                         const time = document.getElementById('time').value;
-
                         if (email && city && time) {
-                            db.ref('reminders').push({
-                                email: email,
-                                city: city,
-                                time: time
-                            }).then(() => {
-                                alert('Reminder set successfully!');
-                                document.getElementById('email').value = '';
-                                document.getElementById('city').value = '';
-                                document.getElementById('time').value = '';
-                            }).catch((error) => {
-                                alert('Error setting reminder: ' + error.message);
-                            });
+                            db.ref('reminders').push({ email, city, time })
+                                .then(() => {
+                                    alert('Reminder set successfully!');
+                                    document.getElementById('email').value = '';
+                                    document.getElementById('city').value = '';
+                                    document.getElementById('time').value = '';
+                                })
+                                .catch(error => alert('Error: ' + error.message));
                         } else {
                             alert('Please fill in all fields.');
+                        }
+                    };
+
+                    window.previewWeather = async function() {
+                        const city = document.getElementById('city').value;
+                        if (!city) {
+                            alert('Please enter a city.');
+                            return;
+                        }
+                        const response = await fetch(\`/weather?city=\${city}\`);
+                        const data = await response.json();
+                        if (data.error) {
+                            alert(data.error);
+                        } else {
+                            document.getElementById('previewTemp').textContent = \`Temperature: \${data.temp}°C\`;
+                            document.getElementById('previewCondition').textContent = \`Condition: \${data.condition}\`;
+                            document.getElementById('previewDesc').textContent = \`Details: \${data.description}\`;
+                            document.getElementById('weatherPreview').classList.add('active');
                         }
                     };
 
@@ -416,40 +343,41 @@ app.get('/', (req, res) => {
                     };
                 };
             </script>
+            <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
         </body>
         </html>
     `);
 });
 
+app.get('/weather', async (req, res) => {
+    const city = req.query.city;
+    const weather = await getWeather(city);
+    if (weather) {
+        res.json(weather);
+    } else {
+        res.status(404).json({ error: 'City not found' });
+    }
+});
+
 cron.schedule('* * * * *', () => {
-    console.log('Cron job triggered at', new Date().toISOString());
     const now = new Date();
-    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-    console.log('Current time:', currentTime);
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const istTime = new Date(now.getTime() + istOffset);
+    const currentTime = `${istTime.getHours().toString().padStart(2, '0')}:${istTime.getMinutes().toString().padStart(2, '0')}`;
 
     db.ref('reminders').once('value')
         .then(async (snapshot) => {
             const reminders = snapshot.val();
-            console.log('Reminders from Firebase:', reminders);
-            if (reminders) {
-                for (let id in reminders) {
-                    const { email, city, time } = reminders[id];
-                    console.log(`Checking reminder: ID=${id}, Email=${email}, City=${city}, Time=${time}`);
-                    if (time === currentTime) {
-                        console.log(`Match found for ${email} at ${time}`);
-                        const weatherData = await getWeather(city);
-                        console.log('Weather data:', weatherData);
-                        if (weatherData) {
-                            sendEmail(email, weatherData, city);
-                        } else {
-                            console.log(`Failed to fetch weather for ${city}, skipping email for ${email}`);
-                        }
-                    } else {
-                        console.log(`No match: ${time} !== ${currentTime}`);
+            if (!reminders) return;
+
+            for (let id in reminders) {
+                const { email, city, time } = reminders[id];
+                if (time === currentTime) {
+                    const weatherData = await getWeather(city);
+                    if (weatherData) {
+                        sendEmail(email, weatherData, city);
                     }
                 }
-            } else {
-                console.log('No reminders found');
             }
         })
         .catch((error) => {
@@ -457,6 +385,6 @@ cron.schedule('* * * * *', () => {
         });
 });
 
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
+app.listen(process.env.PORT || 3000, () => {
+    console.log('Server running on port', process.env.PORT || 3000);
 });
